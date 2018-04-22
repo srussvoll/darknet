@@ -185,11 +185,21 @@ void *fetch_in_thread(void *ptr)
     return 0;
 }
 
+typedef struct {
+    int index;
+} display_input_t;
+
 void *display_in_thread(void *ptr)
 {
-            printf("Displaying: %d\n", (buff_index)%buff_len);
+    display_input_t* input = ptr;
 
-    show_image_cv(buff[(buff_index )], "Demo", ipl);
+    printf("Waiting for detection: %d\n", input->index);
+    sem_wait(&detect_gate[input->index]);
+    printf("Done waiting for detection: %d\n", input->index);
+
+    printf("Displaying: %d\n", input->index);
+
+    show_image_cv(buff[(input->index)], "Demo", ipl);
     int c = cvWaitKey(1);
     if (c != -1) c = c%256;
     if (c == 27) {
@@ -337,10 +347,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             pthread_join(fetch_thread[current], NULL);
             if(pthread_create(&detect_thread[current], 0, detect_in_thread, (void*)detect_input)) error("Thread creation failed");
             double t3 = what_time_is_it_now();
-            printf("Waiting for detection: %d\n", previous);
-            sem_wait(&detect_gate[previous]);
-            printf("Done waiting for detection: %d\n", previous);
-            display_in_thread(0);
+            display_input_t* display_input = malloc(sizeof(display_input_t));
+            display_input->index = previous;
+            pthread_create(&display_thread[previous], 0, display_in_thread, (void*)display_input);
             next_step += 1.0 / fps;
             double now = what_time_is_it_now();
             printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);

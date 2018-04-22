@@ -195,11 +195,13 @@ void *display_in_thread(void *ptr)
 
 //    printf("Waiting for detection: %d\n", input->index);
     double t1 = what_time_is_it_now();
+    int sem_val;
+    sem_getvalue(&detect_gate[input->index], &sem_val);
     sem_wait(&detect_gate[input->index]);
     double t2 = what_time_is_it_now();
 
-    double diff = t2 - t1;
-    if (diff > 0.0001) {
+    if (sem_val <= 0) {
+        double diff = t2 - t1;
         double n = every * threads;
         double new_fps = 0.95 * n*fps / (n + diff * fps);
         double speed = 0.1 * n / fps;
@@ -208,7 +210,6 @@ void *display_in_thread(void *ptr)
         double n = every * threads;
         fps += 0.01 * n / fps;
     }
-    printf("             %f", diff);
 
 //    printf("Done waiting for detection: %d\n", input->index);
 
@@ -369,14 +370,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             double now = what_time_is_it_now();
 //            printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);
         }
-
-        pthread_t t;
-        adjust_fps_input_t* adjust_input = malloc(sizeof(adjust_fps_input_t));
-        adjust_input->should_be_done_by = next_step;
-        adjust_input->every = every;
-        adjust_input->index = first_buff_index;
-
-        //if(pthread_create(&t, 0, adjust_fps, (void*)adjust_input)) error("Thread creation failed");
     }
 }
 

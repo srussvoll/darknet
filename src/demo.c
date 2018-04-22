@@ -9,6 +9,9 @@
 #include "demo.h"
 #include <sys/time.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <errno.h>
+#include <semaphore.h>
 
 #define DEMO 1
 
@@ -21,7 +24,7 @@ static int demo_classes;
 static network *net[60];
 static image buff [60];
 static image buff_letter[60];
-static int buff_index = 0;
+static int buff_index = -1;
 static CvCapture * cap;
 static IplImage  * ipl;
 static float demo_thresh = 0;
@@ -40,9 +43,13 @@ static int nboxes = 0;
 
 static int buff_len = 0;
 static pthread_t detect_thread[60];
+static pthread_t fetch_thread[60];
+static pthread_t display_thread[60];
+static sem_t detect_gate[60];
 
 static float fps;
 static int every;
+static int threads;
 
 static detection *dets[60];
 
@@ -95,7 +102,8 @@ detection *avg_predictions(network *net, int *nboxes)
 
 typedef struct {
     bool run_net;
-    int index;
+    int buff_index;
+    int net_index;
 } detect_input_t;
 
 void *detect_in_thread(void* input_ptr)
@@ -104,19 +112,19 @@ void *detect_in_thread(void* input_ptr)
 
     detect_input_t* input = input_ptr;
 
-    int thread = input->index / every;
 double t1 = what_time_is_it_now();
-            printf("Detecting: %d\n", input->index);
+
+    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
 
 
     if (input->run_net) {
-        printf("Running net on: %d\n", input->index);
+        printf("Running net on: %d\n", input->buff_index);
 
         float nms = .4;
 
-        layer l = net[thread]->layers[net[thread]->n-1];
-        float *X = buff_letter[input->index].data;
-        network_predict(net[thread], X);
+        layer l = net[input->net_index]->layers[net[input->net_index]->n-1];
+        float *X = buff_letter[input->buff_index].data;
+        network_predict(net[input->net_index], X);
 
         /*
            if(l.type == DETECTION){
@@ -125,22 +133,34 @@ double t1 = what_time_is_it_now();
 //        remember_network(net);
 
     //    dets = avg_predictions(net, &nboxes);
-        free(dets[thread]);
-        dets[thread] = get_network_boxes(net[thread], buff[0].w, buff[0].h, demo_thresh, demo_hier, 0, 1, &nboxes);
+        free(dets[input->net_index]);
+        dets[input->net_index] = get_network_boxes(net[input->net_index], buff[0].w, buff[0].h, demo_thresh, demo_hier, 0, 1, &nboxes);
 
-        if (nms > 0) do_nms_obj(dets[thread], nboxes, l.classes, nms);
+        if (nms > 0) do_nms_obj(dets[input->net_index], nboxes, l.classes, nms);
 
+    } else if (input->net_index != input->buff_index) {
+        printf("Waiting for finish of detect %d\n", input->net_index * every);
+        sem_wait(&detect_gate[input->net_index * every]);
+        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
 //    printf("\033[2J");
 //    printf("\033[1;1H");
 //    printf("\nFPS:%.1f\n",fps);
 //    printf("Objects:\n\n");
-    image display = buff[input->index];
-    draw_detections(display, dets[thread], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
+    image display = buff[input->buff_index];
+    draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-printf("Duration of %d: %f\n", input->index, what_time_is_it_now() - t1);
+printf("Duration of %d: %f\n", input->buff_index, what_time_is_it_now() - t1);
+
+    if (input->run_net) {
+        for (int i = 0; i < (every - 1); ++i) {
+            sem_post(&detect_gate[input->buff_index]);
+        }
+    }
+
+    sem_post(&detect_gate[input->buff_index]);
 
     free(input);
 
@@ -148,21 +168,28 @@ printf("Duration of %d: %f\n", input->index, what_time_is_it_now() - t1);
     return 0;
 }
 
+typedef struct {
+    int index;
+} fetch_input_t;
+
 void *fetch_in_thread(void *ptr)
 {
-        printf("Fetching: %d\n", buff_index);
+    fetch_input_t* input = ptr;
 
-    int status = fill_image_from_stream(cap, buff[buff_index]);
-    letterbox_image_into(buff[buff_index], net[0]->w, net[0]->h, buff_letter[buff_index]);
+        printf("Fetching: %d\n", input->index);
+
+    int status = fill_image_from_stream(cap, buff[input->index]);
+    letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
     if(status == 0) demo_done = 1;
+    free(input);
     return 0;
 }
 
 void *display_in_thread(void *ptr)
 {
-            printf("Displaying: %d\n", (buff_index + 1)%buff_len);
+            printf("Displaying: %d\n", (buff_index)%buff_len);
 
-    show_image_cv(buff[(buff_index + 1)%buff_len], "Demo", ipl);
+    show_image_cv(buff[(buff_index )], "Demo", ipl);
     int c = cvWaitKey(1);
     if (c != -1) c = c%256;
     if (c == 27) {
@@ -210,15 +237,17 @@ typedef struct {
     int every;
 } adjust_fps_input_t;
 
-void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen, int every_param, int threads)
+void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen, int every_param, int threads_param)
 {
-    buff_len = every_param * threads;
     every = every_param;
-    if (buff_len > sizeof(buff) / sizeof(buff[0])) error("Too long latency. Decrease -every or -threads.");
+    threads = threads_param;
+    buff_len = every * threads + 2;
+    buff_index = buff_len - 2;
+    if (buff_len > sizeof(buff) / sizeof(buff[0]) - 2) error("Too long latency. Decrease -every or -threads.");
 
     fps = frames != 0 ? frames : 10;
 
-    for (int i = 0; i < threads; ++i) {
+    for (int i = 0; i < threads + 2; ++i) {
         dets[i] = malloc(sizeof(detection));
     }
 
@@ -230,7 +259,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     demo_thresh = thresh;
     demo_hier = hier;
     printf("Demo\n");
-    for (int i = 0; i < threads; ++i) {
+    for (int i = 0; i < threads + 2; ++i) {
         net[i] = load_network(cfgfile, weightfile, 0);
         set_batch_network(net[i], 1);
     }
@@ -266,7 +295,10 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     for (int i = 0; i < buff_len; ++i) {
         buff[i] = get_image_from_stream(cap);
         buff_letter[i] = letterbox_image(buff[0], net[0]->w, net[0]->h);
+        sem_init(&detect_gate[i], 0, 0);
     }
+
+    sem_post(&detect_gate[buff_len - 1]);
 
     ipl = cvCreateImage(cvSize(buff[0].w,buff[0].h), IPL_DEPTH_8U, buff[0].c);
 
@@ -281,40 +313,46 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     while(!demo_done){
-        double next_step = what_time_is_it_now();
+        double next_step = what_time_is_it_now() + 1.0 / fps;
         int first_buff_index = buff_index;
 
-        double t1 = what_time_is_it_now();
-        fetch_in_thread(&buff_index);
-        detect_input_t* detect_input = malloc(sizeof(detect_input_t));
-        detect_input->index = buff_index;
-        detect_input->run_net = true;
-        if(pthread_create(&detect_thread[buff_index], 0, detect_in_thread, (void*)detect_input)) error("Thread creation failed");
-        display_in_thread(0);
-        next_step += 1.0 / fps;
-        printf("Done fetching, dispatching and displaying %d: %f\n", buff_index, what_time_is_it_now() - t1);
-
-        for (int j = 1; j < every; ++j) {
-            buff_index += 1;
+        for (int j = 0; j < every; ++j) {
+            buff_index = (buff_index + 1) % buff_len;
             sleep_until(next_step);
-            fetch_in_thread(&buff_index);
+
+            double t1 = what_time_is_it_now();
+
+            int previous = buff_index;
+            int current = (buff_index + 1) % buff_len;
+            int next = (buff_index + 2) % buff_len;
+
+            fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
+            fetch_input->index = next;
+            pthread_create(&fetch_thread[next], 0, fetch_in_thread, (void*)fetch_input);
+            double t2 = what_time_is_it_now();
             detect_input_t* detect_input = malloc(sizeof(detect_input_t));
-            detect_input->index = buff_index;
-            detect_input->run_net = false;
-            if(pthread_create(&detect_thread[buff_index], 0, detect_in_thread, (void*)detect_input)) error("Thread creation failed");
+            detect_input->buff_index = current;
+            detect_input->net_index = current / every;
+            detect_input->run_net = current % every == 0;
+            pthread_join(fetch_thread[current], NULL);
+            if(pthread_create(&detect_thread[current], 0, detect_in_thread, (void*)detect_input)) error("Thread creation failed");
+            double t3 = what_time_is_it_now();
+            printf("Waiting for detection: %d\n", previous);
+            sem_wait(&detect_gate[previous]);
+            printf("Done waiting for detection: %d\n", previous);
             display_in_thread(0);
             next_step += 1.0 / fps;
+            double now = what_time_is_it_now();
+            printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);
         }
 
         pthread_t t;
-        adjust_fps_input_t* input = malloc(sizeof(adjust_fps_input_t));
-        input->should_be_done_by = next_step;
-        input->every = every;
-        input->index = first_buff_index;
+        adjust_fps_input_t* adjust_input = malloc(sizeof(adjust_fps_input_t));
+        adjust_input->should_be_done_by = next_step;
+        adjust_input->every = every;
+        adjust_input->index = first_buff_index;
 
-        //if(pthread_create(&t, 0, adjust_fps, (void*)input)) error("Thread creation failed");
-        buff_index = (buff_index + 1) % buff_len;
-        sleep_until(next_step);
+        //if(pthread_create(&t, 0, adjust_fps, (void*)adjust_input)) error("Thread creation failed");
     }
 }
 

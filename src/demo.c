@@ -114,11 +114,11 @@ void *detect_in_thread(void* input_ptr)
 
 double t1 = what_time_is_it_now();
 
-    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
+//    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
 
 
     if (input->run_net) {
-        printf("Running net on: %d\n", input->buff_index);
+//        printf("Running net on: %d\n", input->buff_index);
 
         float nms = .4;
 
@@ -139,20 +139,20 @@ double t1 = what_time_is_it_now();
         if (nms > 0) do_nms_obj(dets[input->net_index], nboxes, l.classes, nms);
 
     } else if (input->net_index != input->buff_index) {
-        printf("Waiting for finish of detect %d\n", input->net_index * every);
+//        printf("Waiting for finish of detect %d\n", input->net_index * every);
         sem_wait(&detect_gate[input->net_index * every]);
-        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
+//        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
-//    printf("\033[2J");
-//    printf("\033[1;1H");
-//    printf("\nFPS:%.1f\n",fps);
-//    printf("Objects:\n\n");
+    printf("\033[2J");
+    printf("\033[1;1H");
+    printf("\nFPS:%.1f\n",fps);
+    printf("Objects:\n\n");
     image display = buff[input->buff_index];
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-printf("Duration of %d: %f\n", input->buff_index, what_time_is_it_now() - t1);
+//printf("Duration of %d: %f\n", input->buff_index, what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -176,7 +176,7 @@ void *fetch_in_thread(void *ptr)
 {
     fetch_input_t* input = ptr;
 
-        printf("Fetching: %d\n", input->index);
+//        printf("Fetching: %d\n", input->index);
 
     int status = fill_image_from_stream(cap, buff[input->index]);
     letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
@@ -193,11 +193,26 @@ void *display_in_thread(void *ptr)
 {
     display_input_t* input = ptr;
 
-    printf("Waiting for detection: %d\n", input->index);
+//    printf("Waiting for detection: %d\n", input->index);
+    double t1 = what_time_is_it_now();
     sem_wait(&detect_gate[input->index]);
-    printf("Done waiting for detection: %d\n", input->index);
+    double t2 = what_time_is_it_now();
 
-    printf("Displaying: %d\n", input->index);
+    double diff = t2 - t1;
+    if (diff > 0.0001) {
+        double n = every * threads;
+        double new_fps = 0.95 * n*fps / (n + diff * fps);
+        double speed = 0.1 * n / fps;
+        fps = (1 - speed) * fps + speed * new_fps;
+    } else {
+        double n = every * threads;
+        fps += 0.01 * n / fps;
+    }
+    printf("             %f", diff);
+
+//    printf("Done waiting for detection: %d\n", input->index);
+
+//    printf("Displaying: %d\n", input->index);
 
     show_image_cv(buff[(input->index)], "Demo", ipl);
     int c = cvWaitKey(1);
@@ -352,7 +367,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             pthread_create(&display_thread[previous], 0, display_in_thread, (void*)display_input);
             next_step += 1.0 / fps;
             double now = what_time_is_it_now();
-            printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);
+//            printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);
         }
 
         pthread_t t;

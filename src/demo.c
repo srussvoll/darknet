@@ -200,16 +200,16 @@ void *display_in_thread(void *ptr)
     sem_wait(&detect_gate[input->index]);
     double t2 = what_time_is_it_now();
 
-//    if (sem_val <= 0) {
-//        double diff = t2 - t1;
-//        double n = every * threads;
-//        double new_fps = 0.95 * n*fps / (n + diff * fps);
-//        double speed = 0.1 * n / fps;
-//        fps = (1 - speed) * fps + speed * new_fps;
-//    } else {
-//        double n = every * threads;
-//        fps += 0.01 * n / fps;
-//    }
+    if (sem_val <= 0) {
+        double diff = t2 - t1;
+        double n = every * threads;
+        double new_fps = 0.95 * n*fps / (n + diff * fps);
+        double speed = 0.1 * n / fps;
+        fps = (1 - speed) * fps + speed * new_fps;
+    } else {
+        double n = every * threads;
+        fps += 0.01 * n / fps;
+    }
 
 //    printf("Done waiting for detection: %d\n", input->index);
 
@@ -232,6 +232,9 @@ void *display_in_thread(void *ptr)
         demo_hier -= .02;
         if(demo_hier <= .0) demo_hier = .0;
     }
+
+    free(input);
+
     return 0;
 }
 
@@ -318,12 +321,11 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         buff[i] = get_image_from_stream(cap);
         buff_letter[i] = letterbox_image(buff[0], net[0]->w, net[0]->h);
         sem_init(&detect_gate[i], 0, 0);
-        pthread_create(&fetch_thread[i], 0, nullfn, NULL);
-        pthread_create(&display_thread[i], 0, nullfn, NULL);
-        pthread_create(&detect_thread[i], 0, nullfn, NULL);
     }
 
     sem_post(&detect_gate[2]);
+    pthread_create(&fetch_thread[0], 0, nullfn, NULL);
+    pthread_create(&display_thread[1], 0, nullfn, NULL);
 
     ipl = cvCreateImage(cvSize(buff[0].w,buff[0].h), IPL_DEPTH_8U, buff[0].c);
 

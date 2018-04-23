@@ -208,7 +208,7 @@ void *display_in_thread(void *ptr)
 
     if (sem_val <= 0) {
         double diff = t2 - t1;
-        double n = every * threads;
+        double n = every * (threads + 2);
         double new_fps = 0.95 * n*fps / (n + diff * fps);
         double speed = 0.1 * n / fps;
         fps = (1 - speed) * fps + speed * new_fps;

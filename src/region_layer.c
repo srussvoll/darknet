@@ -317,6 +317,13 @@ void forward_region_layer(const layer l, network net)
         }
     }
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
+
+    FILE *f = fopen("avgIOU.txt", "a");
+    fprintf(f, "IOU %.2f\n", avg_iou);
+    fclose(f);
+    FILE *fp = fopen("avgIOUcount.txt", "a");
+    fprintf(fp, "avg_iout_count %.2f\n", avg_iou/count);
+    fclose(fp);
     printf("Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou/count, avg_cat/class_count, avg_obj/count, avg_anyobj/(l.w*l.h*l.n*l.batch), recall/count, count);
 }
 
@@ -347,8 +354,8 @@ void correct_region_boxes(detection *dets, int n, int w, int h, int netw, int ne
     }
     for (i = 0; i < n; ++i){
         box b = dets[i].bbox;
-        b.x =  (b.x - (netw - new_w)/2./netw) / ((float)new_w/netw); 
-        b.y =  (b.y - (neth - new_h)/2./neth) / ((float)new_h/neth); 
+        b.x =  (b.x - (netw - new_w)/2./netw) / ((float)new_w/netw);
+        b.y =  (b.y - (neth - new_h)/2./neth) / ((float)new_h/neth);
         b.w *= (float)netw/new_w;
         b.h *= (float)neth/new_h;
         if(!relative){
@@ -504,4 +511,3 @@ void zero_objectness(layer l)
         }
     }
 }
-

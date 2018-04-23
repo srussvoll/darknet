@@ -151,7 +151,7 @@ void *detect_in_thread(void* input_ptr)
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-printf("Detected in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
+printf("Detected in %.4f\n", what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -174,7 +174,7 @@ void *fetch_in_thread(void *ptr)
 {
     fetch_input_t* input = ptr;
 
-    pthread_join(display_thread[input->index], NULL);
+    //pthread_join(display_thread[input->index], NULL);
 
 //        printf("Fetching: %d\n", input->index);
 
@@ -362,7 +362,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
             display_input_t* display_input = malloc(sizeof(display_input_t));
             display_input->index = next;
-            pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
+//            pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
+            display_in_thread((void*) display_input);
 
             fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
             fetch_input->index = current;

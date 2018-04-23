@@ -553,7 +553,7 @@ void validate_detector_recall(char *cfgfile, char *weightfile)
         FILE *f = fopen("avgIOU.txt", "a");
         fprintf(f, "IOU %.2f\n", avg_iou);
         fclose(f);
-        FILE *fp = fopen("avgIOU.txt", "a");
+        FILE *fp = fopen("avgIOU100TOTAl.txt", "a");
         fprintf(fp, "avgIOUT100Total %.2f\n", avg_iou*100/total);
         fclose(fp);
         fprintf(stderr, "%5d %5d %5d\tRPs/Img: %.2f\tIOU: %.2f%%\tRecall:%.2f%%\n", i, correct, total, (float)proposals/(i+1), avg_iou*100/total, 100.*correct/total);

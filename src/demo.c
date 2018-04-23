@@ -83,7 +83,7 @@ void *detect_in_thread(void* input_ptr) {
         free(dets[input->net_index]);
         dets[input->net_index] = get_network_boxes(net[input->net_index], buff[0].w, buff[0].h, demo_thresh, demo_hier, 0, 1, &nboxes);
 
-        do_nms_obj(dets[input->net_index], nboxes, l.classes, 0.4);
+        do_nms_obj(dets[input->net_index], nboxes, l.classes, 0.3);
 
     } else if (input->net_index != input->buff_index) {
         sem_wait(&detect_gate[input->net_index * every]);

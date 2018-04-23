@@ -208,14 +208,13 @@ void *display_in_thread(void *ptr)
 
     if (sem_val <= 0) {
         double diff = t2 - t1;
-        double n = every * (threads + 2);
         double new_fps = 0.95 * n*fps / (n + diff * fps);
         double speed = 0.1 * n / fps;
         fps = (1 - speed) * fps + speed * new_fps;
 //        printf("---------------------------------------------------------------------------------");
     } else {
         double n = every * threads;
-        fps += 0.01 * n / fps;
+        fps += 0.05 * n / fps;
     }
 
 //    printf("Done waiting for detection: %d\n", input->index);

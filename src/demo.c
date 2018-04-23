@@ -30,13 +30,10 @@ static IplImage  * ipl;
 static float demo_thresh = 0;
 static float demo_hier = .5;
 
-static int demo_frame = 3;
-static int demo_index = 0;
 static float **predictions;
 static float *avg;
 static int demo_done = 0;
 static int demo_total = 0;
-double demo_time;
 
 static int nboxes = 0;
 
@@ -56,11 +53,9 @@ typedef enum { false_v, true_v } bool_t;
 
 detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num);
 
-int size_network(network *net)
-{
-    int i;
+int size_network(network *net) {
     int count = 0;
-    for(i = 0; i < net->n; ++i){
+    for(int i = 0; i < net->n; ++i){
         layer l = net->layers[i];
         if(l.type == YOLO || l.type == REGION || l.type == DETECTION){
             count += l.outputs;
@@ -69,80 +64,29 @@ int size_network(network *net)
     return count;
 }
 
-void remember_network(network *net)
-{
-    int i;
-    int count = 0;
-    for(i = 0; i < net->n; ++i){
-        layer l = net->layers[i];
-        if(l.type == YOLO || l.type == REGION || l.type == DETECTION){
-            memcpy(predictions[demo_index] + count, net->layers[i].output, sizeof(float) * l.outputs);
-            count += l.outputs;
-        }
-    }
-}
-
-detection *avg_predictions(network *net, int *nboxes)
-{
-    int i, j;
-    int count = 0;
-    fill_cpu(demo_total, 0, avg, 1);
-    for(j = 0; j < demo_frame; ++j){
-        axpy_cpu(demo_total, 1./demo_frame, predictions[j], 1, avg, 1);
-    }
-    for(i = 0; i < net->n; ++i){
-        layer l = net->layers[i];
-        if(l.type == YOLO || l.type == REGION || l.type == DETECTION){
-            memcpy(l.output, avg + count, sizeof(float) * l.outputs);
-            count += l.outputs;
-        }
-    }
-    detection *dets = get_network_boxes(net, buff[0].w, buff[0].h, demo_thresh, demo_hier, 0, 1, nboxes);
-    return dets;
-}
-
 typedef struct {
     bool_t run_net;
     int buff_index;
     int net_index;
 } detect_input_t;
 
-void *detect_in_thread(void* input_ptr)
-{
+void *detect_in_thread(void* input_ptr) {
     detect_input_t* input = input_ptr;
 
     pthread_join(fetch_thread[input->buff_index], NULL);
 
-    double t1 = what_time_is_it_now();
-
-//    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
-
-
     if (input->run_net) {
-//        printf("Running net on: %d\n", input->buff_index);
-
-        float nms = .4;
-
         layer l = net[input->net_index]->layers[net[input->net_index]->n-1];
         float *X = buff_letter[input->buff_index].data;
         network_predict(net[input->net_index], X);
 
-        /*
-           if(l.type == DETECTION){
-           get_detection_boxes(l, 1, 1, demo_thresh, probs, boxes, 0);
-           } else */
-//        remember_network(net);
-
-    //    dets = avg_predictions(net, &nboxes);
         free(dets[input->net_index]);
         dets[input->net_index] = get_network_boxes(net[input->net_index], buff[0].w, buff[0].h, demo_thresh, demo_hier, 0, 1, &nboxes);
 
-        if (nms > 0) do_nms_obj(dets[input->net_index], nboxes, l.classes, nms);
+        do_nms_obj(dets[input->net_index], nboxes, l.classes, 0.4);
 
     } else if (input->net_index != input->buff_index) {
-//        printf("Waiting for finish of detect %d\n", input->net_index * every);
         sem_wait(&detect_gate[input->net_index * every]);
-//        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
     printf("\033[2J");
@@ -151,9 +95,6 @@ void *detect_in_thread(void* input_ptr)
     printf("Objects:\n\n");
     image display = buff[input->buff_index];
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
-    demo_index = (demo_index + 1)%demo_frame;
-
-//    printf("Detected %d in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -172,20 +113,14 @@ typedef struct {
     int index;
 } fetch_input_t;
 
-void *fetch_in_thread(void *ptr)
-{
+void *fetch_in_thread(void *ptr) {
     fetch_input_t* input = ptr;
 
     pthread_join(display_thread[input->index], NULL);
 
-//    printf("Fetching: %d\n", input->index);
-
-    double t1 = what_time_is_it_now();
     int status = fill_image_from_stream(cap, buff[input->index]);
     letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
     if(status == 0) demo_done = 1;
-    double t2 = what_time_is_it_now();
-//    printf("Fetched %d in %.4f\n", input->index, t2 - t1);
 
     free(input);
     return 0;
@@ -195,11 +130,9 @@ typedef struct {
     int index;
 } display_input_t;
 
-void *display_in_thread(void *ptr)
-{
+void *display_in_thread(void *ptr) {
     display_input_t* input = ptr;
 
-//    printf("Waiting for detection: %d\n", input->index);
     double t1 = what_time_is_it_now();
     int sem_val;
     sem_getvalue(&detect_gate[input->index], &sem_val);
@@ -212,15 +145,10 @@ void *display_in_thread(void *ptr)
         double new_fps = 0.95 * n*fps / (n + diff * fps);
         double speed = 0.2 * n / fps;
         fps = (1 - speed) * fps + speed * new_fps;
-//        printf("---------------------------------------------------------------------------------");
     } else {
         double n = every * threads;
         fps += 0.02 * n / fps;
     }
-
-//    printf("Done waiting for detection: %d\n", input->index);
-
-//    printf("Displaying: %d\n", input->index);
 
     show_image_cv(buff[(input->index)], "Demo", ipl);
     int c = cvWaitKey(1);
@@ -240,26 +168,9 @@ void *display_in_thread(void *ptr)
         if(demo_hier <= .0) demo_hier = .0;
     }
 
-    double tt2 = what_time_is_it_now();
-//    printf("Displayed %d in %.4f\n", input->index, tt2 - tt1);
-
     free(input);
 
     return 0;
-}
-
-void *display_loop(void *ptr)
-{
-    while(1){
-        display_in_thread(0);
-    }
-}
-
-void *detect_loop(void *ptr)
-{
-    while(1){
-        detect_in_thread(0);
-    }
 }
 
 void sleep_until(double time) {
@@ -286,7 +197,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         dets[i] = malloc(sizeof(detection));
     }
 
-    demo_frame = 1;
     image **alphabet = load_alphabet();
     demo_names = names;
     demo_alphabet = alphabet;
@@ -302,12 +212,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
     srand(2222222);
 
-    int i;
     demo_total = size_network(net[0]);
-    predictions = calloc(demo_frame, sizeof(float*));
-    for (i = 0; i < demo_frame; ++i){
-        predictions[i] = calloc(demo_total, sizeof(float));
-    }
+    predictions = calloc(1, sizeof(float*));
+    predictions[1] = calloc(demo_total, sizeof(float));
     avg = calloc(demo_total, sizeof(float));
 
     if(filename){
@@ -325,7 +232,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     if(!cap) error("Couldn't connect to webcam.\n");
-
 
     for (int i = 0; i < buff_len; ++i) {
         buff[i] = get_image_from_stream(cap);

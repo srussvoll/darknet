@@ -113,11 +113,11 @@ void *detect_in_thread(void* input_ptr)
 
     double t1 = what_time_is_it_now();
 
-//    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
+    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
 
 
     if (input->run_net) {
-//        printf("Running net on: %d\n", input->buff_index);
+        printf("Running net on: %d\n", input->buff_index);
 
         float nms = .4;
 
@@ -138,9 +138,9 @@ void *detect_in_thread(void* input_ptr)
         if (nms > 0) do_nms_obj(dets[input->net_index], nboxes, l.classes, nms);
 
     } else if (input->net_index != input->buff_index) {
-//        printf("Waiting for finish of detect %d\n", input->net_index * every);
+        printf("Waiting for finish of detect %d\n", input->net_index * every);
         sem_wait(&detect_gate[input->net_index * every]);
-//        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
+        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
 //    printf("\033[2J");
@@ -151,7 +151,7 @@ void *detect_in_thread(void* input_ptr)
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-printf("Detected in %.4f\n", what_time_is_it_now() - t1);
+    printf("Detected %d in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -176,7 +176,7 @@ void *fetch_in_thread(void *ptr)
 
     //pthread_join(display_thread[input->index], NULL);
 
-//        printf("Fetching: %d\n", input->index);
+    printf("Fetching: %d\n", input->index);
 
     double t1 = what_time_is_it_now();
     int status = fill_image_from_stream(cap, buff[input->index]);
@@ -197,7 +197,7 @@ void *display_in_thread(void *ptr)
 {
     display_input_t* input = ptr;
 
-//    printf("Waiting for detection: %d\n", input->index);
+    printf("Waiting for detection: %d\n", input->index);
     double t1 = what_time_is_it_now();
     int sem_val;
     sem_getvalue(&detect_gate[input->index], &sem_val);
@@ -218,9 +218,9 @@ void *display_in_thread(void *ptr)
         fps += 0.01 * n / fps;
     }
 
-//    printf("Done waiting for detection: %d\n", input->index);
+    printf("Done waiting for detection: %d\n", input->index);
 
-//    printf("Displaying: %d\n", input->index);
+    printf("Displaying: %d\n", input->index);
 
     show_image_cv(buff[(input->index)], "Demo", ipl);
     int c = cvWaitKey(1);
@@ -241,7 +241,7 @@ void *display_in_thread(void *ptr)
     }
 
     double tt2 = what_time_is_it_now();
-    printf("Displayed in %.4f\n", tt2 - tt1);
+    printf("Displayed %d in %.4f\n", input->index, tt2 - tt1);
 
     free(input);
 

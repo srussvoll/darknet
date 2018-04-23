@@ -143,15 +143,15 @@ void *detect_in_thread(void* input_ptr)
 //        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
-    printf("\033[2J");
-    printf("\033[1;1H");
-    printf("\nFPS:%.1f\n",fps);
-    printf("Objects:\n\n");
+//    printf("\033[2J");
+//    printf("\033[1;1H");
+//    printf("\nFPS:%.1f\n",fps);
+//    printf("Objects:\n\n");
     image display = buff[input->buff_index];
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-//printf("Duration of %d: %f\n", input->buff_index, what_time_is_it_now() - t1);
+printf("Detected in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -178,9 +178,13 @@ void *fetch_in_thread(void *ptr)
 
 //        printf("Fetching: %d\n", input->index);
 
+    double t1 = what_time_is_it_now();
     int status = fill_image_from_stream(cap, buff[input->index]);
     letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
     if(status == 0) demo_done = 1;
+    double t2 = what_time_is_it_now();
+    printf("Fetched in %.4f\n", t2 - t1);
+
     free(input);
     return 0;
 }
@@ -199,6 +203,8 @@ void *display_in_thread(void *ptr)
     sem_getvalue(&detect_gate[input->index], &sem_val);
     sem_wait(&detect_gate[input->index]);
     double t2 = what_time_is_it_now();
+
+    double tt1 = what_time_is_it_now();
 
     if (sem_val <= 0) {
         double diff = t2 - t1;
@@ -232,6 +238,9 @@ void *display_in_thread(void *ptr)
         demo_hier -= .02;
         if(demo_hier <= .0) demo_hier = .0;
     }
+
+    double tt2 = what_time_is_it_now();
+    printf("Displayed in %.4f\n", tt2 - tt1);
 
     free(input);
 

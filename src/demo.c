@@ -200,16 +200,16 @@ void *display_in_thread(void *ptr)
     sem_wait(&detect_gate[input->index]);
     double t2 = what_time_is_it_now();
 
-    if (sem_val <= 0) {
-        double diff = t2 - t1;
-        double n = every * threads;
-        double new_fps = 0.95 * n*fps / (n + diff * fps);
-        double speed = 0.1 * n / fps;
-        fps = (1 - speed) * fps + speed * new_fps;
-    } else {
-        double n = every * threads;
-        fps += 0.01 * n / fps;
-    }
+//    if (sem_val <= 0) {
+//        double diff = t2 - t1;
+//        double n = every * threads;
+//        double new_fps = 0.95 * n*fps / (n + diff * fps);
+//        double speed = 0.1 * n / fps;
+//        fps = (1 - speed) * fps + speed * new_fps;
+//    } else {
+//        double n = every * threads;
+//        fps += 0.01 * n / fps;
+//    }
 
 //    printf("Done waiting for detection: %d\n", input->index);
 

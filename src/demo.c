@@ -29,7 +29,6 @@ static CvCapture * cap;
 static IplImage  * ipl;
 static float demo_thresh = 0;
 static float demo_hier = .5;
-static int running = 0;
 
 static int demo_frame = 3;
 static int demo_index = 0;
@@ -108,11 +107,11 @@ typedef struct {
 
 void *detect_in_thread(void* input_ptr)
 {
-    running = 1;
-
     detect_input_t* input = input_ptr;
 
-double t1 = what_time_is_it_now();
+    pthread_join(fetch_thread[input->buff_index], NULL);
+
+    double t1 = what_time_is_it_now();
 
 //    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
 
@@ -164,7 +163,6 @@ double t1 = what_time_is_it_now();
 
     free(input);
 
-    running = 0;
     return 0;
 }
 
@@ -175,6 +173,8 @@ typedef struct {
 void *fetch_in_thread(void *ptr)
 {
     fetch_input_t* input = ptr;
+
+    pthread_join(display_thread[input->index], NULL);
 
 //        printf("Fetching: %d\n", input->index);
 
@@ -264,7 +264,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     every = every_param;
     threads = threads_param;
     buff_len = every * threads + 2;
-    buff_index = buff_len - 2;
+    buff_index = buff_len - 1;
     if (buff_len > sizeof(buff) / sizeof(buff[0]) - 2) error("Too long latency. Decrease -every or -threads.");
 
     fps = frames != 0 ? frames : 10;
@@ -339,35 +339,31 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
     while(!demo_done){
         double next_step = what_time_is_it_now() + 1.0 / fps;
-        int first_buff_index = buff_index;
 
         for (int j = 0; j < every; ++j) {
             buff_index = (buff_index + 1) % buff_len;
             sleep_until(next_step);
 
-            double t1 = what_time_is_it_now();
-
             int previous = buff_index;
             int current = (buff_index + 1) % buff_len;
             int next = (buff_index + 2) % buff_len;
 
-            fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
-            fetch_input->index = next;
-            pthread_create(&fetch_thread[next], 0, fetch_in_thread, (void*)fetch_input);
-            double t2 = what_time_is_it_now();
-            detect_input_t* detect_input = malloc(sizeof(detect_input_t));
-            detect_input->buff_index = current;
-            detect_input->net_index = current / every;
-            detect_input->run_net = current % every == 0;
-            pthread_join(fetch_thread[current], NULL);
-            if(pthread_create(&detect_thread[current], 0, detect_in_thread, (void*)detect_input)) error("Thread creation failed");
-            double t3 = what_time_is_it_now();
             display_input_t* display_input = malloc(sizeof(display_input_t));
-            display_input->index = previous;
-            pthread_create(&display_thread[previous], 0, display_in_thread, (void*)display_input);
+            display_input->index = next;
+            pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
+
+            fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
+            fetch_input->index = current;
+            pthread_create(&fetch_thread[current], 0, fetch_in_thread, (void*)fetch_input);
+
+            detect_input_t* detect_input = malloc(sizeof(detect_input_t));
+            detect_input->buff_index = previous;
+            detect_input->net_index = previous / every;
+            detect_input->run_net = previous % every == 0;
+            pthread_create(&detect_thread[current], 0, detect_in_thread, (void*)detect_input);
+
             next_step += 1.0 / fps;
-            double now = what_time_is_it_now();
-//            printf("Done fetching (%.3f), dispatching (%.3f) and displaying (%.3f) %d: %.3f\n\n", t2 - t1, t3 - t2, now - t3, current, now - t1);
+
         }
     }
 }

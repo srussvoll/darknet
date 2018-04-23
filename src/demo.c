@@ -174,7 +174,7 @@ void *fetch_in_thread(void *ptr)
 {
     fetch_input_t* input = ptr;
 
-    //pthread_join(display_thread[input->index], NULL);
+    pthread_join(display_thread[input->index], NULL);
 
     printf("Fetching: %d\n", input->index);
 
@@ -365,8 +365,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 
             display_input_t* display_input = malloc(sizeof(display_input_t));
             display_input->index = next;
-//            pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
-            display_in_thread((void*) display_input);
+            pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
+//            display_in_thread((void*) display_input);
 
             fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
             fetch_input->index = current;

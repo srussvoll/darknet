@@ -323,7 +323,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         pthread_create(&detect_thread[i], 0, nullfn, NULL);
     }
 
-    sem_post(&detect_gate[buff_len - 1]);
+    sem_post(&detect_gate[2]);
 
     ipl = cvCreateImage(cvSize(buff[0].w,buff[0].h), IPL_DEPTH_8U, buff[0].c);
 

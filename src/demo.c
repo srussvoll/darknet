@@ -257,7 +257,7 @@ void sleep_until(double time) {
     }
 }
 
-void nullfn(void *ptr) {return 0;}
+void* nullfn(void *ptr) {return 0;}
 
 void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen, int every_param, int threads_param)
 {
@@ -318,9 +318,9 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         buff[i] = get_image_from_stream(cap);
         buff_letter[i] = letterbox_image(buff[0], net[0]->w, net[0]->h);
         sem_init(&detect_gate[i], 0, 0);
-        pthread_create(fetch_thread[i], 0, nullfn, NULL);
-        pthread_create(display_thread[i], 0, nullfn, NULL);
-        pthread_create(detect_thread[i], 0, nullfn, NULL);
+        pthread_create(&fetch_thread[i], 0, nullfn, NULL);
+        pthread_create(&display_thread[i], 0, nullfn, NULL);
+        pthread_create(&detect_thread[i], 0, nullfn, NULL);
     }
 
     sem_post(&detect_gate[buff_len - 1]);

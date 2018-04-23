@@ -183,7 +183,7 @@ void *fetch_in_thread(void *ptr)
     letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
     if(status == 0) demo_done = 1;
     double t2 = what_time_is_it_now();
-    printf("Fetched in %.4f\n", t2 - t1);
+    printf("Fetched %d in %.4f\n", input->index, t2 - t1);
 
     free(input);
     return 0;

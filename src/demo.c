@@ -113,11 +113,11 @@ void *detect_in_thread(void* input_ptr)
 
     double t1 = what_time_is_it_now();
 
-    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
+//    printf("Detecting (%d): %d\n", input->net_index, input->buff_index);
 
 
     if (input->run_net) {
-        printf("Running net on: %d\n", input->buff_index);
+//        printf("Running net on: %d\n", input->buff_index);
 
         float nms = .4;
 
@@ -138,20 +138,20 @@ void *detect_in_thread(void* input_ptr)
         if (nms > 0) do_nms_obj(dets[input->net_index], nboxes, l.classes, nms);
 
     } else if (input->net_index != input->buff_index) {
-        printf("Waiting for finish of detect %d\n", input->net_index * every);
+//        printf("Waiting for finish of detect %d\n", input->net_index * every);
         sem_wait(&detect_gate[input->net_index * every]);
-        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
+//        printf("Finished waiting for finish of detect %d\n", input->net_index * every);
     }
 
-//    printf("\033[2J");
-//    printf("\033[1;1H");
-//    printf("\nFPS:%.1f\n",fps);
-//    printf("Objects:\n\n");
+    printf("\033[2J");
+    printf("\033[1;1H");
+    printf("\nFPS:%.1f\n",fps);
+    printf("Objects:\n\n");
     image display = buff[input->buff_index];
     draw_detections(display, dets[input->net_index], nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes);
     demo_index = (demo_index + 1)%demo_frame;
 
-    printf("Detected %d in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
+//    printf("Detected %d in %.4f\n", input->buff_index, what_time_is_it_now() - t1);
 
     if (input->run_net) {
         for (int i = 0; i < (every - 1); ++i) {
@@ -176,14 +176,14 @@ void *fetch_in_thread(void *ptr)
 
     pthread_join(display_thread[input->index], NULL);
 
-    printf("Fetching: %d\n", input->index);
+//    printf("Fetching: %d\n", input->index);
 
     double t1 = what_time_is_it_now();
     int status = fill_image_from_stream(cap, buff[input->index]);
     letterbox_image_into(buff[input->index], net[0]->w, net[0]->h, buff_letter[input->index]);
     if(status == 0) demo_done = 1;
     double t2 = what_time_is_it_now();
-    printf("Fetched %d in %.4f\n", input->index, t2 - t1);
+//    printf("Fetched %d in %.4f\n", input->index, t2 - t1);
 
     free(input);
     return 0;
@@ -197,7 +197,7 @@ void *display_in_thread(void *ptr)
 {
     display_input_t* input = ptr;
 
-    printf("Waiting for detection: %d\n", input->index);
+//    printf("Waiting for detection: %d\n", input->index);
     double t1 = what_time_is_it_now();
     int sem_val;
     sem_getvalue(&detect_gate[input->index], &sem_val);
@@ -212,15 +212,15 @@ void *display_in_thread(void *ptr)
         double new_fps = 0.95 * n*fps / (n + diff * fps);
         double speed = 0.1 * n / fps;
         fps = (1 - speed) * fps + speed * new_fps;
-        printf("---------------------------------------------------------------------------------");
+//        printf("---------------------------------------------------------------------------------");
     } else {
         double n = every * threads;
         fps += 0.01 * n / fps;
     }
 
-    printf("Done waiting for detection: %d\n", input->index);
+//    printf("Done waiting for detection: %d\n", input->index);
 
-    printf("Displaying: %d\n", input->index);
+//    printf("Displaying: %d\n", input->index);
 
     show_image_cv(buff[(input->index)], "Demo", ipl);
     int c = cvWaitKey(1);
@@ -241,7 +241,7 @@ void *display_in_thread(void *ptr)
     }
 
     double tt2 = what_time_is_it_now();
-    printf("Displayed %d in %.4f\n", input->index, tt2 - tt1);
+//    printf("Displayed %d in %.4f\n", input->index, tt2 - tt1);
 
     free(input);
 
@@ -366,7 +366,6 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             display_input_t* display_input = malloc(sizeof(display_input_t));
             display_input->index = next;
             pthread_create(&display_thread[next], 0, display_in_thread, (void*)display_input);
-//            display_in_thread((void*) display_input);
 
             fetch_input_t* fetch_input = malloc(sizeof(fetch_input_t));
             fetch_input->index = current;

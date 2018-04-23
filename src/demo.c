@@ -333,7 +333,10 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         sem_init(&detect_gate[i], 0, 0);
     }
 
-    sem_post(&detect_gate[2]);
+    for (int i = 2; i < buff_len; ++i) {
+        sem_post(&detect_gate[i]);
+    }
+
     pthread_create(&fetch_thread[0], 0, nullfn, NULL);
     pthread_create(&display_thread[1], 0, nullfn, NULL);
 

@@ -206,8 +206,6 @@ void *display_in_thread(void *ptr)
     sem_wait(&detect_gate[input->index]);
     double t2 = what_time_is_it_now();
 
-    double tt1 = what_time_is_it_now();
-
     if (sem_val <= 0) {
         double diff = t2 - t1;
         double n = buff_len;
@@ -230,14 +228,14 @@ void *display_in_thread(void *ptr)
     if (c == 27) {
         demo_done = 1;
         return 0;
-    } else if (c == 82) {
+    } else if (c == 81) {
         demo_thresh += .02;
-    } else if (c == 84) {
+    } else if (c == 65) {
         demo_thresh -= .02;
         if(demo_thresh <= .02) demo_thresh = .02;
-    } else if (c == 83) {
+    } else if (c == 87) {
         demo_hier += .02;
-    } else if (c == 81) {
+    } else if (c == 83) {
         demo_hier -= .02;
         if(demo_hier <= .0) demo_hier = .0;
     }

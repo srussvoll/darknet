@@ -52,9 +52,7 @@ static int threads;
 
 static detection *dets[60];
 
-typedef bool int;
-#define false 0
-#define true 1
+typedef enum { false_v, true_v } bool_t;
 
 detection *get_network_boxes(network *net, int w, int h, float thresh, float hier, int *map, int relative, int *num);
 
@@ -104,7 +102,7 @@ detection *avg_predictions(network *net, int *nboxes)
 }
 
 typedef struct {
-    bool run_net;
+    bool_t run_net;
     int buff_index;
     int net_index;
 } detect_input_t;

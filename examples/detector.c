@@ -128,6 +128,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
 
         i = get_current_batch(net);
         fprintf(loss_file, "%.2f, %.2f\n", loss, avg_loss);
+        fflush(loss_file);
         printf("%ld: %f, %f avg, %f rate, %lf seconds, %d images\n", get_current_batch(net), loss, avg_loss, get_current_rate(net), what_time_is_it_now()-time, i*imgs);
         if(i%100==0){
 #ifdef GPU

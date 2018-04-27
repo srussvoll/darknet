@@ -8,6 +8,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     list *options = read_data_cfg(datacfg);
     char *train_images = option_find_str(options, "train", "data/train.list");
     char *backup_directory = option_find_str(options, "backup", "/backup/");
+    globalBackupDir = backup_directory;
 
     srand(time(0));
     char *base = basecfg(cfgfile);
@@ -59,7 +60,9 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     double time;
     int count = 0;
     //while(i*imgs < N*120){
-    FILE *loss_file = fopen("loss_and_avg_loss.txt", "a");
+    char filename[100];
+    snprintf(filename, sizeof(filename), "%s/loss_and_avg_loss.txt", globalBackupDir);
+    FILE *loss_file = fopen(filename, "a");
     while(get_current_batch(net) < net->max_batches){
         if(l.random && count++%10 == 0){
             printf("Resizing\n");

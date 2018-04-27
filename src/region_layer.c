@@ -318,11 +318,15 @@ void forward_region_layer(const layer l, network net)
     }
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
 
-    FILE *fp = fopen("IOU.txt", "a");
+    char filename[100];
+    snprintf(filename, sizeof(filename), "%s/IOU.txt", globalBackupDir);
+    FILE *fp = fopen(filename, "a");
     fprintf(fp, "%.2f\n", avg_iou/count);
     fclose(fp);
 
-    FILE *fp2 = fopen("obj.txt", "a");
+    char filename2[100];
+    snprintf(filename2, sizeof(filename2), "%s/obj.txt", globalBackupDir);
+    FILE *fp2 = fopen(filename2, "a");
     fprintf(fp2, "%.2f\n", avg_obj/count);
     fclose(fp2);
     printf("Region Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, Avg Recall: %f,  count: %d\n", avg_iou/count, avg_cat/class_count, avg_obj/count, avg_anyobj/(l.w*l.h*l.n*l.batch), recall/count, count);

@@ -59,7 +59,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     double time;
     int count = 0;
     //while(i*imgs < N*120){
-    FILE *f = fopen("loss_and_avg_loss.txt", "a");
+    FILE *loss_file = fopen("loss_and_avg_loss.txt", "a");
     while(get_current_batch(net) < net->max_batches){
         if(l.random && count++%10 == 0){
             printf("Resizing\n");
@@ -127,7 +127,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
         avg_loss = avg_loss*.9 + loss*.1;
 
         i = get_current_batch(net);
-        fprintf(f, "%.2f, %.2f\n", loss, avg_loss);
+        fprintf(loss_file, "%.2f, %.2f\n", loss, avg_loss);
         printf("%ld: %f, %f avg, %f rate, %lf seconds, %d images\n", get_current_batch(net), loss, avg_loss, get_current_rate(net), what_time_is_it_now()-time, i*imgs);
         if(i%100==0){
 #ifdef GPU
@@ -147,7 +147,7 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
         }
         free_data(train);
     }
-    fclose(f);
+    fclose(loss_file);
 #ifdef GPU
     if(ngpus != 1) sync_nets(nets, ngpus, 0);
 #endif

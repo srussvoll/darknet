@@ -236,6 +236,23 @@ void forward_yolo_layer(const layer l, network net)
         }
     }
     *(l.cost) = pow(mag_array(l.delta, l.outputs * l.batch), 2);
+
+    char filenameIOU[100];
+    char filenameObj[100];
+    char filenameClass[100];
+    snprintf(filenameIOU, sizeof(filenameIOU), "%s/IOU.txt", globalBackupDir);
+    snprintf(filenameObj, sizeof(filenameObj), "%s/obj.txt", globalBackupDir);
+    snprintf(filenameClass, sizeof(filenameClass), "%s/class.txt", globalBackupDir);
+    FILE *fpIOU = fopen(filenameIOU, "a");
+    FILE *fpObj = fopen(filenameObj, "a");
+    FILE *fpClass = fopen(filenameClass, "a");
+    fprintf(fpIOU, "%.2f\n", avg_iou/count);
+    fprintf(fpObj, "%.2f\n", avg_obj/count);
+    fprintf(fpClass, "%.2f\n", avg_cat/class_count);
+    fclose(fpIOU);
+    fclose(fpObj);
+    fclose(fpClass);
+
     printf("Region %d Avg IOU: %f, Class: %f, Obj: %f, No Obj: %f, .5R: %f, .75R: %f,  count: %d\n", net.index, avg_iou/count, avg_cat/class_count, avg_obj/count, avg_anyobj/(l.w*l.h*l.n*l.batch), recall/count, recall75/count, count);
 }
 
